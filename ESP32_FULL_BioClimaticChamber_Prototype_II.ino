@@ -34,19 +34,19 @@
 #include <Adafruit_ADS1X15.h>
 #include <DHT.h>
 #include <DHT_U.h>
-//#include "Servo.h"
 
 #define NUM_SENSORS 4
+#define NUM_RELAYS 6
 #define DELAY_MS 2000
 
 /************* PWM Config */
 struct PWM
 {
-  const uint8_t pwmChannel;
-  const uint8_t pwmPin;
-  const uint16_t pwmFreq;
-  const uint8_t pwmRes;
-  const uint16_t pwmDuty;
+  uint8_t pwmChannel;
+  uint8_t pwmPin;
+  uint32_t pwmFreq;
+  uint8_t pwmRes;
+  uint32_t pwmDuty;
 };
 
 PWM pwm = {
@@ -54,9 +54,8 @@ PWM pwm = {
   .pwmPin = 18,
   .pwmFreq = 3100,
   .pwmRes = 10,
-  .pwmDuty = 128
+  .pwmDuty = 512
 };
-
 
 /************* DHT11 Sensors config */
 struct DHTSensor
@@ -81,12 +80,23 @@ const uint8_t relays[] = {14, 27, 26, 25, 33, 32};
 Adafruit_ADS1115 ads;
 
 /************* Code execution config */
+unsigned long currentTime = 0;
 unsigned long previousTime = 0;
 bool automaticMode = true;
 
 
-
 /************* API */
+
+/**
+* Starts the generation of the pwm constant signal to be used
+* by the potentiostat circuit.
+*/
+void startPWM()
+{
+  ledcAttachChannel(pwm.pwmPin, pwm.pwmFreq, pwm.pwmRes, pwm.pwmChannel);
+  ledcWrite(pwm.pwmPin, pwm.pwmDuty);
+}
+
  /**
  * Reads temperature and humidity data from the DHT11 sensors.
  * The data is stored in the corresponding sensor structure and 
@@ -169,7 +179,7 @@ void sendData()
   message += "ADC=" + String(adcValue) + ",";
   message += "V=" + String(voltage, 3) + ";";
 
-  for (int i = 0; i < 6; i++)
+  for (int i = 0; i < NUM_RELAYS; i++)
   {
     message += "R" + String(i+1) + "=" + (digitalRead(relays[i]) == LOW ? "1" : "0") + ",";
   }
@@ -192,7 +202,7 @@ void processCommand(String command)
   {
     automaticMode = false;
 
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < NUM_RELAYS; i++)
     {
       if (command.indexOf("R" + String(i+1) + "=1") != -1) 
       {
@@ -213,26 +223,24 @@ void processCommand(String command)
 /********************************/
 /**
  * Initializes all hardware components, including:
+ * - PWM configuration (3.1 kHz on GPIO 18)
  * - Serial communication (UART)
  * - I2C communication for ADS1115
  * - DHT11 sensors
  * - Relay pins
- * - PWM configuration (3.1 kHz on GPIO 18)
  */
 void setup()
 {
-  analogWriteFrequency(pwm.pwmPin, pwm.pwmFreq);
-  analogWriteResolution(pwm.pwmPin, pwm.pwmRes);
-  analogWrite(pwm.pwmPin, pwm.pwmDuty);
+  startPWM();
   Serial.begin(115200);
   Wire.begin();
   
-  for (int i = 0; i < NUM_SENSORS; i++) 
+  for (uint8_t i = 0; i < NUM_SENSORS; i++) 
   {
     sensors[i].sensor.begin();
   }
   
-  for (int i = 0; i < 6; i++) 
+  for (uint8_t i = 0; i < NUM_RELAYS; i++) 
   {
     pinMode(relays[i], OUTPUT);
     digitalWrite(relays[i], HIGH);
@@ -265,7 +273,7 @@ void loop()
     processCommand(command);
   }
 
-  unsigned long currentTime = millis();
+  currentTime = millis();
   if (currentTime - previousTime >= DELAY_MS) 
   {
     previousTime = currentTime;
