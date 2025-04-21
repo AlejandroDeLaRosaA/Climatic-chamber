@@ -1,47 +1,47 @@
+// Pines
+#define PWM_PIN 18              // PWM de salida (DAC simulado)
+#define ADC_PIN 34              // Entrada ADC en GPIO 34 (ADC1_CH6)
 
-#include <LiquidCrystal.h>
+// PWM config (ESP32 usa canales)
+#define PWM_CHANNEL 0
+#define PWM_FREQ 3100
+#define PWM_RESOLUTION 8        // 8 bits (0-255)
+#define DUTY_CYCLE 128
 
-LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
-
-uint8_t a = 10;
 int val = 0;
-float ct = A0;  //ADC
 float c = 0;
 int n = 0;
 int pos = 0;
-float Potstep = 0.0078;                              // fixed due to the DAC resolution
-int vevals[] = { 100, 20, 50, 100, 200, 250, 300 };  //multiple scan rates values (mV/s)
+float Potstep = 0.0078;
+int vevals[] = {100, 20, 50, 100, 200, 250, 300};
 uint8_t const count = 6;
-long intervalos[count];
+long intervalos[7]; // 0 a 6
 
-void setup()
- {
-  TCCR1B = TCCR1B & B11111000 | B00000001;  //Set dividers to change PWM frequency
+void setup() {
   Serial.begin(9600);
-  pinMode(a, OUTPUT);
-  pinMode(ct, INPUT);
+
+  // Configura PWM en ESP32
+   analogWriteFrequency(PWM_PIN, PWM_FREQ);
+  analogWriteResolution(PWM_PIN, PWM_RESOLUTION);
+  analogWrite(PWM_PIN, DUTY_CYCLE); 
+  analogReadResolution(12); 
+
+  // Calcula los intervalos
+  for (pos = 0; pos < count; pos++) {
+    intervalos[pos] = 1000000L / (vevals[pos] * 128L); // en microsegundos
+  }
 }
 
-void loop()
- {
-  for (pos = 0; pos < count; pos++)
-  {
-    intervalos[pos] = (1000000L / ((vevals[pos]) * 128L));
-  }
-
-  for (pos = 0; pos <= count; pos++) 
-  {
+void loop() {
+  for (pos = 0; pos <= count; pos++) {
     n = 0;
-    while (n <= 1)
-     {
-      //Start the forward scan
-      for (val = 0; val <= 255; val++)
-       {
-        analogWrite(a, val);
+    while (n <= 1) {
+      // Forward scan
+      for (val = 0; val <= 255; val++) {
+        ledcWrite(PWM_CHANNEL, val); // PWM al 0-255
+        delay(intervalos[pos] / 1000); // Convertimos a milisegundos
+        c = analogRead(ADC_PIN);
         Serial.print(val);
-        delay(intervalos[pos]);
-        //c = ((0.00195*(analogRead(ct))-1)*1000); // Current reading outputs in uA
-        c = analogRead(ct);
         Serial.print(" ");
         Serial.print(c);
         Serial.print(" ");
@@ -51,14 +51,13 @@ void loop()
         Serial.print(" ");
         Serial.println(intervalos[pos]);
       }
-      //Start the reverse scan
-      for (val = 255; val >= 0; val--)
-       {
-        analogWrite(a, val);
+
+      // Reverse scan
+      for (val = 255; val >= 0; val--) {
+        ledcWrite(PWM_CHANNEL, val);
+        delay(intervalos[pos] / 1000);
+        c = analogRead(ADC_PIN);
         Serial.print(val);
-        delay(intervalos[pos]);
-        //c = ((0.00195*(analogRead(ct))-1)*1000); // Current reading outputs in uA!!!
-        c = analogRead(ct);
         Serial.print(" ");
         Serial.print(c);
         Serial.print(" ");
@@ -68,6 +67,7 @@ void loop()
         Serial.print(" ");
         Serial.println(intervalos[pos]);
       }
+
       n = n + 1;
     }
   }
