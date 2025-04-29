@@ -5,14 +5,13 @@
 #include <DHT_U.h>
 
 /* === Features that need relays === */
-#define PELTIER_HOT_PIN       33
-#define PELTIER_HOT_FAN_PIN   26
-#define PELTIER_COLD_PIN      27
-#define PELTIER_COLD_FAN_PIN  14
-#define WATER_PUMP_PIN        13
-#define RGB_STRIPE_RED_PIN    23
-#define RGB_STRIPE_BLUE_PIN   22
-#define RGB_STRIPE_GREEN_PIN  4
+#define PELTIER1_HOT_PIN       33
+#define PELTIER1_HOT_FANS_PIN  26
+#define PELTIER2_HOT_PIN       27
+#define PELTIER2_HOT_FANS_PIN  14
+
+#define WATER_PUMP_PIN         13
+#define RGB_STRIPE_PIN         23
 
 /* === Relay logic === */
 #define ON 0x0
@@ -109,7 +108,7 @@ bool scanning = false;
 void Setup_potentiostatRamp_NonBlocking(void) 
 {
   dacWrite(DAC_PIN, 0);
-  /* precalculo de intervalos para cada scan rate */
+  /* scan rate intervals precalculation */
   for(pos = 0; pos < count; pos++)
   {
     intervalos[pos] = 10000L / (vevals[pos] * 128L);
@@ -188,23 +187,19 @@ void Potentiostat_Scan_NonBlocking(void)
  */
 void relaysInit(void)
 {
-  pinMode(PELTIER_HOT_PIN,      OUTPUT);
-  pinMode(PELTIER_HOT_FAN_PIN,  OUTPUT);
-  pinMode(PELTIER_COLD_PIN,     OUTPUT);
-  pinMode(PELTIER_COLD_FAN_PIN, OUTPUT);
-  pinMode(WATER_PUMP_PIN,       OUTPUT);
-  pinMode(RGB_STRIPE_RED_PIN,   OUTPUT);
-  pinMode(RGB_STRIPE_BLUE_PIN,  OUTPUT);
-  pinMode(RGB_STRIPE_GREEN_PIN, OUTPUT);
+  pinMode(PELTIER1_HOT_PIN,       OUTPUT);
+  pinMode(PELTIER1_HOT_FANS_PIN,  OUTPUT);
+  pinMode(PELTIER2_HOT_PIN,       OUTPUT);
+  pinMode(PELTIER2_HOT_FANS_PIN,  OUTPUT);
+  pinMode(WATER_PUMP_PIN,         OUTPUT);
+  pinMode(RGB_STRIPE_PIN,         OUTPUT);
 
-  digitalWrite(PELTIER_HOT_PIN,      OFF);
-  digitalWrite(PELTIER_HOT_FAN_PIN,  OFF);
-  digitalWrite(PELTIER_COLD_PIN,     OFF);
-  digitalWrite(PELTIER_COLD_FAN_PIN, OFF);
-  digitalWrite(WATER_PUMP_PIN,       OFF);
-  digitalWrite(RGB_STRIPE_RED_PIN,   OFF);
-  digitalWrite(RGB_STRIPE_BLUE_PIN,  OFF);
-  digitalWrite(RGB_STRIPE_GREEN_PIN, OFF);
+  digitalWrite(PELTIER1_HOT_PIN,      OFF);
+  digitalWrite(PELTIER1_HOT_FANS_PIN, OFF);
+  digitalWrite(PELTIER2_HOT_PIN,      OFF);
+  digitalWrite(PELTIER2_HOT_FANS_PIN, OFF);
+  digitalWrite(WATER_PUMP_PIN,        OFF);
+  digitalWrite(RGB_STRIPE_PIN,        OFF);
 }
 
 
@@ -281,16 +276,12 @@ void loop()
       if (currentHour >= 7 && currentHour < 20)
       {
         
-        digitalWrite(RGB_STRIPE_RED_PIN, ON);
-        digitalWrite(RGB_STRIPE_BLUE_PIN, ON);
-        digitalWrite(RGB_STRIPE_GREEN_PIN, ON);  
+        digitalWrite(RGB_STRIPE_PIN, ON); 
         Serial.println("7am, lights on...");
       }
       else
       {
-        digitalWrite(RGB_STRIPE_RED_PIN, OFF);
-        digitalWrite(RGB_STRIPE_BLUE_PIN, OFF);
-        digitalWrite(RGB_STRIPE_GREEN_PIN, OFF);  
+        digitalWrite(RGB_STRIPE_PIN, OFF);
         Serial.println("8pm, lights off...");
       }
     }
@@ -318,28 +309,19 @@ void loop()
     /* Temperature control logic */
     if(tempAvg < 20.0)
     {
-      digitalWrite(PELTIER_HOT_PIN,     ON);
-      digitalWrite(PELTIER_HOT_FAN_PIN, ON);
-      Serial.println("Peltier 1 warming...(FAN ON)");
+      digitalWrite(PELTIER1_HOT_PIN,      ON);
+      digitalWrite(PELTIER1_HOT_FANS_PIN, ON);
+      digitalWrite(PELTIER2_HOT_PIN,      ON);
+      digitalWrite(PELTIER2_HOT_FANS_PIN, ON);
+      Serial.println("Warming peltier cells ON...(FAN ON)");
     }
     else
     {
-      digitalWrite(PELTIER_HOT_PIN,     OFF);
-      digitalWrite(PELTIER_HOT_FAN_PIN, OFF);
-      Serial.println("Peltier 1 OFF...(FAN OFF)");
-    }
-
-    if(tempAvg > 30.0)
-    {
-      digitalWrite(PELTIER_COLD_PIN,     ON);
-      digitalWrite(PELTIER_COLD_FAN_PIN, ON);
-      Serial.println("Peltier 2 cooling...(FAN ON)");
-    }
-    else
-    {
-      digitalWrite(PELTIER_COLD_PIN,     OFF);
-      digitalWrite(PELTIER_COLD_FAN_PIN, OFF);
-      Serial.println("Peltier 2 OFF...(FAN OFF)");
+      digitalWrite(PELTIER1_HOT_PIN,      OFF);
+      digitalWrite(PELTIER1_HOT_FANS_PIN, OFF);
+      digitalWrite(PELTIER2_HOT_PIN,      OFF);
+      digitalWrite(PELTIER2_HOT_FANS_PIN, OFF);
+      Serial.println("Warming peltier cells OFF....(FAN OFF)");
     }
   }
 
@@ -349,15 +331,22 @@ void loop()
     lastHUMReadTime = currentTime;
     /* === Soil moisture reading === */
     gndHum1 = analogRead(HUM_SENSOR1_PIN);
+    gndHum2 = analogRead(HUM_SENSOR2_PIN);
 
     /* Humidity sensors reading mapped to percentage */
     gndHum1_mapped = map(gndHum1, 0, 4095, 100, 0);
+    gndHum2_mapped = map(gndHum2, 0, 4095, 100, 0);
 
     Serial.print("Humidity sensor 1: ");
     Serial.print(gndHum1_mapped); Serial.println("%");
+    Serial.print("Humidity sensor 2: ");
+    Serial.print(gndHum2_mapped); Serial.println("%");
+
+    gndHumAvg = (gndHum1_mapped + gndHum2_mapped) / 2;
+    Serial.print("Average soil humidity: "); Serial.print(gndHumAvg); Serial.println("%");
     
     /* Irrigation control due to soil humidity */
-    if(!irrigationIsActive && gndHum1_mapped < 30.0)
+    if(!irrigationIsActive && gndHumAvg < 30.0)
     {
       digitalWrite(WATER_PUMP_PIN, ON);
       irrigationStartTime = currentTime;
@@ -373,5 +362,8 @@ void loop()
     Serial.println("Irrigation completed");
   }
 }
+
+
+
 
 
