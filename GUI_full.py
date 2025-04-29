@@ -145,17 +145,35 @@ class TemperatureTab(QWidget):
             self.table.setItem(i, 3, QTableWidgetItem(str(self.data_s3[i])))
             self.table.setItem(i, 4, QTableWidgetItem(str(self.data_s4[i])))
 
-
 class SoilHumidityTab(QWidget):
     def __init__(self, go_back_callback):
         super().__init__()
         self.graph_view = True
 
-        self.plot_avg = LivePlotCanvas("Humedad Promedio", "%", color='tab:green')
-        self.plot_1 = LivePlotCanvas("Sensor de Humedad 1", "%", color='tab:blue')
-        self.plot_2 = LivePlotCanvas("Sensor de Humedad 2", "%", color='tab:orange')
-        self.table = QTableWidget()
+        # Crear la figura y ejes
+        self.fig = Figure(figsize=(5, 2), dpi=100)
+        self.ax = self.fig.add_subplot(111)
+        self.ax.set_title("Humedad en Tierra")
+        self.ax.set_xlabel("Tiempo")
+        self.ax.set_ylabel("%")
+        self.ax.grid(True)
 
+        # Líneas para los sensores y el promedio
+        self.line_s1, = self.ax.plot([], [], label='Sensor 1', color='tab:blue')
+        self.line_s2, = self.ax.plot([], [], label='Sensor 2', color='tab:orange')
+        self.line_avg, = self.ax.plot([], [], label='Promedio', color='tab:green')
+
+        self.ax.legend(loc='upper right')
+
+        self.canvas = FigureCanvas(self.fig)
+
+        # Almacenes de datos
+        self.data_s1 = []
+        self.data_s2 = []
+        self.data_avg = []
+        self.time = []
+
+        self.table = QTableWidget()
         self.toggle_btn = QPushButton("Mostrar como tabla")
         self.toggle_btn.clicked.connect(self.toggle_view)
 
@@ -164,9 +182,7 @@ class SoilHumidityTab(QWidget):
 
         self.layout = QVBoxLayout()
         self.layout.addWidget(self.toggle_btn)
-        self.layout.addWidget(self.plot_avg)
-        self.layout.addWidget(self.plot_1)
-        self.layout.addWidget(self.plot_2)
+        self.layout.addWidget(self.canvas)
         self.layout.addWidget(self.back_btn)
         self.setLayout(self.layout)
 
@@ -179,43 +195,54 @@ class SoilHumidityTab(QWidget):
         val2 = round(random.uniform(30.0, 70.0), 2)
         avg = round((val1 + val2) / 2, 2)
 
-        self.plot_1.update_plot(val1)
-        self.plot_2.update_plot(val2)
-        self.plot_avg.update_plot(avg)
+        self.data_s1.append(val1)
+        self.data_s2.append(val2)
+        self.data_avg.append(avg)
+        self.time.append(len(self.time))
+
+        if len(self.time) > 50:
+            self.data_s1 = self.data_s1[-50:]
+            self.data_s2 = self.data_s2[-50:]
+            self.data_avg = self.data_avg[-50:]
+            self.time = self.time[-50:]
+
+        self.line_s1.set_data(self.time, self.data_s1)
+        self.line_s2.set_data(self.time, self.data_s2)
+        self.line_avg.set_data(self.time, self.data_avg)
+
+        all_data = self.data_s1 + self.data_s2 + self.data_avg
+        self.ax.set_xlim(max(0, self.time[0]), self.time[-1] + 1)
+        self.ax.set_ylim(min(all_data) - 1, max(all_data) + 1)
+        self.canvas.draw()
+
         if not self.graph_view:
             self.update_table()
 
     def toggle_view(self):
         self.graph_view = not self.graph_view
         if self.graph_view:
-            self.layout.replaceWidget(self.table, self.plot_avg)
-            self.layout.insertWidget(2, self.plot_1)
-            self.layout.insertWidget(3, self.plot_2)
+            self.layout.replaceWidget(self.table, self.canvas)
             self.table.hide()
-            self.plot_avg.show()
-            self.plot_1.show()
-            self.plot_2.show()
+            self.canvas.show()
             self.toggle_btn.setText("Mostrar como tabla")
         else:
             self.update_table()
-            self.layout.removeWidget(self.plot_1)
-            self.layout.removeWidget(self.plot_2)
-            self.plot_1.hide()
-            self.plot_2.hide()
-            self.layout.replaceWidget(self.plot_avg, self.table)
-            self.plot_avg.hide()
+            self.layout.replaceWidget(self.canvas, self.table)
+            self.canvas.hide()
             self.table.show()
             self.toggle_btn.setText("Mostrar como gráfica")
 
     def update_table(self):
-        num_rows = len(self.plot_avg.data)
+        num_rows = len(self.data_avg)
         self.table.setRowCount(num_rows)
         self.table.setColumnCount(3)
         self.table.setHorizontalHeaderLabels(["Sensor 1 (%)", "Sensor 2 (%)", "Promedio (%)"])
         for i in range(num_rows):
-            self.table.setItem(i, 0, QTableWidgetItem(str(self.plot_1.data[i])))
-            self.table.setItem(i, 1, QTableWidgetItem(str(self.plot_2.data[i])))
-            self.table.setItem(i, 2, QTableWidgetItem(str(self.plot_avg.data[i])))
+            self.table.setItem(i, 0, QTableWidgetItem(str(self.data_s1[i])))
+            self.table.setItem(i, 1, QTableWidgetItem(str(self.data_s2[i])))
+            self.table.setItem(i, 2, QTableWidgetItem(str(self.data_avg[i])))
+
+  
 
 
 class LightIrrigationTab(QWidget):
@@ -337,4 +364,3 @@ if __name__ == "__main__":
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
-
