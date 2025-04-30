@@ -1,18 +1,18 @@
 import sys
 import random
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QTabWidget, QVBoxLayout, QPushButton, QLabel,
+    QApplication, QSpacerItem, QSizePolicy, QWidget, QTabWidget, QVBoxLayout, QPushButton, QLabel,
     QMainWindow, QStackedWidget, QTableWidget, QTableWidgetItem, QHBoxLayout
 )
 from PyQt5.QtCore import Qt, QTimer, QTime
-from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QColor, QPixmap
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 
 # Utilidad para crear gráficas en widgets
 class LivePlotCanvas(FigureCanvas):
-    def __init__(self, title, ylabel, color='tab:blue', parent=None, width=5, height=2, dpi=100):
+    def __init__(self, title, ylabel, color='tab:blue', parent=None, width=5, height=2, dpi=70):
         fig = Figure(figsize=(width, height), dpi=dpi)
         self.ax = fig.add_subplot(111)
         self.ax.set_title(title)
@@ -288,13 +288,27 @@ class MainMenu(QWidget):
     def __init__(self, go_temp, go_hum, go_states):
         super().__init__()
 
-        self.title = QLabel("MENÚ PRINCIPAL")
-        self.title.setAlignment(Qt.AlignCenter)
-        self.title.setStyleSheet("font-size: 24px; font-weight: bold;")
+        # Fondo con imagen
+        self.background = QLabel(self)
+        pixmap = QPixmap("C:/Users/Aleja/Desktop/GUI_Alex/ciatej_logo.png")  # <-- cambia a la ruta de tu imagen si está en otro lugar
+        self.background.setPixmap(pixmap)
+        self.background.setScaledContents(True)
+        self.background.lower()  # asegúrate de que el fondo esté detrás de todo
 
+        # Título
+        self.title = QLabel("Cámara de crecimiento")
+        self.title.setAlignment(Qt.AlignCenter)
+        self.title.setStyleSheet("font-size: 28px; font-weight: bold; margin-top: 40px; color: white;")
+
+        # Botones más estrechos (1/3 del ancho)
         self.temp_btn = QPushButton("Ver Temperatura")
         self.hum_btn = QPushButton("Ver Humedad en Tierra")
         self.states_btn = QPushButton("Ver Estados del Sistema")
+
+        for btn in [self.temp_btn, self.hum_btn, self.states_btn]:
+            btn.setFixedWidth(250)  # Ancho fijo (ajustable según ventana)
+            btn.setStyleSheet("font-size: 16px; padding: 10px;")
+            btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
         self.temp_btn.clicked.connect(go_temp)
         self.hum_btn.clicked.connect(go_hum)
@@ -302,21 +316,32 @@ class MainMenu(QWidget):
 
         self.clock_label = QLabel("Hora actual: --:--:--")
         self.clock_label.setAlignment(Qt.AlignCenter)
-        self.clock_label.setStyleSheet("font-size: 14px; margin-top: 20px;")
+        self.clock_label.setStyleSheet("font-size: 14px; color: white; margin-top: 20px;")
 
-        layout = QVBoxLayout()
-        layout.addWidget(self.title)
-        layout.addStretch()
-        layout.addWidget(self.temp_btn)
-        layout.addWidget(self.hum_btn)
-        layout.addWidget(self.states_btn)
-        layout.addStretch()
-        layout.addWidget(self.clock_label)
-        self.setLayout(layout)
+        # Centrar elementos
+        button_layout = QVBoxLayout()
+        button_layout.setAlignment(Qt.AlignCenter)
+        button_layout.addWidget(self.temp_btn)
+        button_layout.addWidget(self.hum_btn)
+        button_layout.addWidget(self.states_btn)
 
+        spacer = QSpacerItem(20, 80, QSizePolicy.Minimum, QSizePolicy.Fixed)
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(self.title)
+        main_layout.addItem(spacer)
+        main_layout.addLayout(button_layout)
+        main_layout.addStretch()
+        main_layout.addWidget(self.clock_label)
+        self.setLayout(main_layout)
+
+        # Actualizar hora
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_time)
         self.timer.start(1000)
+
+    def resizeEvent(self, event):
+        # Ajustar fondo al tamaño de la ventana
+        self.background.resize(self.size())
 
     def update_time(self):
         now = QTime.currentTime()
@@ -364,3 +389,4 @@ if __name__ == "__main__":
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
+
