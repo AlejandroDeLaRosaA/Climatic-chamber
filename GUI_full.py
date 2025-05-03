@@ -241,25 +241,48 @@ class LightIrrigationTab(QWidget):
 
 ##############################
 class VoltammetryTab(QWidget):
-    def __init__(self, go_back_callback):
+    def __init__(self, return_callback):
         super().__init__()
 
-        # Tres gráficas
-        self.plot_dac = MultiLinePlotCanvas("Rampa aplicada (DAC)", "Voltios (V)",                     [("DAC (V)", 'tab:blue')])
-        self.plot_adc = MultiLinePlotCanvas("Lectura analógica (ADC)", "Voltios (V)",                  [("Valor analógico ADC (V)", 'tab:orange')])
-        self.plot_time = MultiLinePlotCanvas("Velocidad de escaneo (ms)", "Velocidad (ms)", [("Intervalo (ms)", 'tab:green')])
-
-
-        self.back_btn = QPushButton("Volver al Menú Principal")
-        self.back_btn.setFixedWidth(200)
-        self.back_btn.clicked.connect(go_back_callback)
+        self.return_callback = return_callback
 
         layout = QVBoxLayout()
+
+        # Tres gráficas
+        self.plot_dac = MultiLinePlotCanvas("Rampa aplicada (DAC)", "Voltios (V)",          [("DAC (V)", 'tab:blue')])
+        self.plot_adc = MultiLinePlotCanvas("Lectura analógica (ADC)", "Voltios (V)",       [("Valor analógico ADC (V)", 'tab:orange')])
+        self.plot_time = MultiLinePlotCanvas("Velocidad de escaneo (ms)", "Velocidad (ms)", [("Intervalo (ms)", 'tab:green')])
+
+        self.table_widget = QTableWidget()
+        self.table_widget.setVisible(False)
+
         layout.addWidget(self.plot_dac)
         layout.addWidget(self.plot_adc)
         layout.addWidget(self.plot_time)
-        layout.addWidget(self.back_btn, alignment=Qt.AlignCenter)
+        layout.addWidget(self.table_widget)
+
+        button_layout = QHBoxLayout() 
+
+        self.toggle_button = QPushButton("Mostrar como tabla")
+        self.toggle_button.setFixedSize(160, 30)
+        self.toggle_button.clicked.connect(self.toggle_view)
+
+        self.back_button = QPushButton("Volver al menú principal")
+        self.back_button.setFixedSize(160, 30)
+        self.back_button.clicked.connect(self.return_callback)
+
+        button_layout.addStretch()
+        button_layout.addWidget(self.toggle_button)
+        button_layout.addWidget(self.back_button)
+        button_layout.addStretch()
+
+        layout.addLayout(button_layout)
         self.setLayout(layout)
+
+       # Almacén de datos
+        self.dac_values = []
+        self.adc_values = []
+        self.intervals = []
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.simulate_voltammetry_data)
@@ -267,13 +290,47 @@ class VoltammetryTab(QWidget):
 
     def simulate_voltammetry_data(self):
         # Simulación para fines de prueba
-        dac_val = round(random.uniform(-1.0, 1.0), 3)
-        adc_val = round(random.uniform(0.0, 3.3), 3)
-        interval = random.randint(90, 110)
+        dac_val = round(random.uniform(0.0, 3.3), 2)
+        adc_val = round(random.uniform(0.0, 3.3), 2)
+        interval = random.randint(1, 100)
+
+        self.dac_values.append(dac_val)
+        self.adc_values.append(adc_val)
+        self.intervals.append(interval)
 
         self.plot_dac.update_plot({"DAC (V)": dac_val})
         self.plot_adc.update_plot({"Valor analógico ADC (V)": adc_val})
         self.plot_time.update_plot({"Intervalo (ms)": interval})
+
+        if self.table_widget.isVisible():
+            self.update_table()
+
+    def toggle_view(self):
+        is_plot_visible = self.plot_dac.isVisible()
+
+        self.plot_dac.setVisible(not is_plot_visible)
+        self.plot_adc.setVisible(not is_plot_visible)
+        self.plot_time.setVisible(not is_plot_visible)
+        self.table_widget.setVisible(is_plot_visible)
+
+        if not is_plot_visible:
+            self.toggle_button.setText("Mostrar como tabla")
+        else:
+            self.toggle_button.setText("Mostrar como gráfica")
+            self.update_table()
+
+    def update_table(self):
+        rows = len(self.dac_values)
+        self.table_widget.setRowCount(rows)
+        self.table_widget.setColumnCount(3)
+        self.table_widget.setHorizontalHeaderLabels(["DAC (V)", "ADC (V)", "Intervalo (ms)"])
+
+        for i in range(rows):
+            self.table_widget.setItem(i, 0, QTableWidgetItem(str(self.dac_values[i])))
+            self.table_widget.setItem(i, 1, QTableWidgetItem(str(self.adc_values[i])))
+            self.table_widget.setItem(i, 2, QTableWidgetItem(str(self.intervals[i])))
+
+        self.table_widget.resizeColumnsToContents()
 
 ############################
 class MainMenu(QWidget):
@@ -282,7 +339,7 @@ class MainMenu(QWidget):
 
         # Fondo con imagen
         self.background = QLabel(self)
-        pixmap = QPixmap("C:/Users/imagen.png") # reemplazar por ruta
+        pixmap = QPixmap("C:/Users/Aleja/Desktop/GUI_Alex/ciatej_logo.png") # reemplazar por ruta
         self.background.setPixmap(pixmap)
         self.background.setScaledContents(True)
         self.background.lower()  
@@ -386,7 +443,7 @@ class MainWindow(QMainWindow):
         self.stack.setCurrentWidget(self.voltammetry_tab)
 
 
-# ******** app entry ******** #
+# ********************************************** app entry ********************************************** #
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()
