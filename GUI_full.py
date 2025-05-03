@@ -244,12 +244,10 @@ class VoltammetryTab(QWidget):
     def __init__(self, go_back_callback):
         super().__init__()
 
-
-
-        # Tres gráficas: DAC (V), ADC (V), Tiempo (s)
-        self.plot_dac = MultiLinePlotCanvas("Voltaje de Salida (DAC)", "Voltios (V)", [("DAC", 'tab:blue')])
-        self.plot_adc = MultiLinePlotCanvas("Corriente Leída (ADC)", "Voltios (V)", [("ADC", 'tab:orange')])
-        self.plot_time = MultiLinePlotCanvas("Intervalo de Tiempo", "Tiempo (ms)", [("Intervalo", 'tab:green')])
+        # Tres gráficas
+        self.plot_dac = MultiLinePlotCanvas("Rampa aplicada (DAC)", "Voltios (V)",                     [("DAC (V)", 'tab:blue')])
+        self.plot_adc = MultiLinePlotCanvas("Lectura analógica (ADC)", "Voltios (V)",                  [("Valor analógico ADC (V)", 'tab:orange')])
+        self.plot_time = MultiLinePlotCanvas("Velocidad de escaneo (ms)", "Velocidad (ms)", [("Intervalo (ms)", 'tab:green')])
 
 
         self.back_btn = QPushButton("Volver al Menú Principal")
@@ -273,9 +271,9 @@ class VoltammetryTab(QWidget):
         adc_val = round(random.uniform(0.0, 3.3), 3)
         interval = random.randint(90, 110)
 
-        self.plot_dac.update_plot({"DAC": dac_val})
-        self.plot_adc.update_plot({"ADC": adc_val})
-        self.plot_time.update_plot({"Intervalo": interval})
+        self.plot_dac.update_plot({"DAC (V)": dac_val})
+        self.plot_adc.update_plot({"Valor analógico ADC (V)": adc_val})
+        self.plot_time.update_plot({"Intervalo (ms)": interval})
 
 ############################
 class MainMenu(QWidget):
@@ -284,21 +282,21 @@ class MainMenu(QWidget):
 
         # Fondo con imagen
         self.background = QLabel(self)
-        pixmap = QPixmap("C:/Users/Aleja/Desktop/GUI_Alex/ciatej_logo.png") 
+        pixmap = QPixmap("C:/Users/imagen.png") # reemplazar por ruta
         self.background.setPixmap(pixmap)
         self.background.setScaledContents(True)
         self.background.lower()  
 
         # Título
-        self.title = QLabel("Cámara de crecimiento")
+        self.title = QLabel("Cámara bioclimática")
         self.title.setAlignment(Qt.AlignCenter)
-        self.title.setStyleSheet("font-size: 28px; font-weight: bold; margin-top: 40px; color: white;")
+        self.title.setStyleSheet("font-size: 40px; font-weight: bold; margin-top: 40px; color: white;")
         self.temp_btn = QPushButton("Ver Temperatura")
         self.hum_btn = QPushButton("Ver Humedad en Tierra")
         self.states_btn = QPushButton("Ver Estados del Sistema")
-        self.voltammetry_btn = QPushButton("Ver Voltametría")
+        self.voltammetry_btn = QPushButton("Ver gráficas de Voltametría")
 
-        for btn in [self.temp_btn, self.hum_btn, self.states_btn]:
+        for btn in [self.temp_btn, self.hum_btn, self.states_btn, self.voltammetry_btn]:
             btn.setFixedWidth(250)  
             btn.setStyleSheet("font-size: 16px; padding: 10px;")
             btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -347,7 +345,7 @@ class MainMenu(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Sistema de Monitoreo")
+        self.setWindowTitle("Monitoreo Cámara bioclimatica CIATEJ-LINBIA")
         self.setGeometry(100, 100, 800, 600)
 
         self.stack = QStackedWidget()
