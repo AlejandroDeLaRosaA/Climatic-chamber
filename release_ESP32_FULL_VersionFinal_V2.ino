@@ -3,6 +3,7 @@
 #include <time.h>
 #include <DHT.h>
 #include <DHT_U.h>
+#include <HTTPClient.h>
 
 /* === Features that need relays === */
 #define PELTIER1_HOT_PIN       33
@@ -74,8 +75,8 @@ unsigned long irrigationStartTime = 0;
 const uint16_t IRRIGATION_DURATION = 7000;
 
 /* WiFi credentials setup */ 
-const char* ssid     = "Alumnos";        
-const char* password = "30L0x!4Lu$";
+const char* ssid     = "INFINITUM6667_2.4";        
+const char* password = "Py8gEB84up";
 
 /* NTP and GMT */
 const long gmtOffset_sec = -6 * 3600;   // UTC-6 (CDMX, GDL)
@@ -361,64 +362,5 @@ void loop()
     irrigationIsActive = false;
     Serial.println("Irrigation completed");
   }
-  /***************************************************************************
-  *** Send Serial data to Raspberry PI ***************************************
-  ****************************************************************************
-  *** Serial data transmission as a frame every 2s ***************************
-  ****************************************************************************/
-  static unsigned long lastSerialSend = 0;
-  if (currentTime - lastSerialSend >= 2000) 
-  {
-    lastSerialSend = currentTime;
-
-    /* Read boolean states (true = ON, false = OFF) */
-    bool peltier1_on = digitalRead(PELTIER1_HOT_PIN) == LOW;
-    bool peltier2_on = digitalRead(PELTIER2_HOT_PIN) == LOW;
-    bool rgb_on = digitalRead(RGB_STRIPE_PIN) == LOW;
-    bool pump_on = digitalRead(WATER_PUMP_PIN) == LOW;
-
-    /* Start of frame */
-    Serial.print("{\"temp\":[");
-    Serial.print(isnan(temp1) ? "NaN" : String(temp1, 1)); Serial.print(",");
-    Serial.print(isnan(temp2) ? "NaN" : String(temp2, 1)); Serial.print(",");
-    Serial.print(isnan(temp3) ? "NaN" : String(temp3, 1)); Serial.print(",");
-    Serial.print(isnan(temp4) ? "NaN" : String(temp4, 1));
-    Serial.print("],");
-
-    Serial.print("\"temp_avg\":");
-    Serial.print(isnan(tempAvg) ? "NaN" : String(tempAvg, 1)); Serial.print(",");
-
-    Serial.print("\"hum\":[");
-    Serial.print(gndHum1_mapped); Serial.print(",");
-    Serial.print(gndHum2_mapped); Serial.print("],");
-
-    Serial.print("\"hum_avg\":");
-    Serial.print(gndHumAvg); Serial.print(",");
-
-    Serial.print("\"states\":{");
-    Serial.print("\"peltier1\":"); Serial.print(peltier1_on ? "true" : "false"); Serial.print(",");
-    Serial.print("\"peltier2\":"); Serial.print(peltier2_on ? "true" : "false"); Serial.print(",");
-    Serial.print("\"rgb\":"); Serial.print(rgb_on ? "true" : "false"); Serial.print(",");
-    Serial.print("\"pump\":"); Serial.print(pump_on ? "true" : "false");
-    Serial.print("},");
-
-    /* Potentiostat */
-    Serial.print("\"potentiostat\":{");
-    Serial.print("\"dac_val\":"); Serial.print(val); Serial.print(",");
-    Serial.print("\"adc_val\":"); Serial.print(c, 2); Serial.print(",");
-    Serial.print("\"interval\":"); Serial.print(DAC_INTERVAL);
-    Serial.print("},");
-
-    /* Current time */
-    Serial.print("\"time\":\"");
-    if (currentHour < 10) Serial.print("0");
-    Serial.print(currentHour); Serial.print(":");
-    if (currentMinute < 10) Serial.print("0");
-    Serial.print(currentMinute); Serial.print(":");
-    if (currentSecond < 10) Serial.print("0");
-    Serial.print(currentSecond);
-    Serial.println("\"}");
-  }
 }
-
 
