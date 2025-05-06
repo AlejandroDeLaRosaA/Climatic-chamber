@@ -67,7 +67,12 @@ unsigned long lastTimeUpdate = 0;
 long DAC_INTERVAL = 0;
 const unsigned long DHT_INTERVAL = 2000;  
 const unsigned long HUM_INTERVAL = 2000;  
-const unsigned long TIME_UPDATE_INTERVAL = 60000; // 1 minute
+const unsigned long TIME_UPDATE_INTERVAL = 2000; // 1 minute
+
+/* JSON File */
+unsigned long lastJSONSendTime = 0;
+const unsigned long JSON_SEND_INTERVAL = 2000;
+
 
 /* Non-blocking irrigation control */
 bool irrigationIsActive = false;
@@ -112,7 +117,7 @@ void Setup_potentiostatRamp_NonBlocking(void)
   /* scan rate intervals precalculation */
   for(pos = 0; pos < count; pos++)
   {
-    intervalos[pos] = 10000L / (vevals[pos] * 128L);
+    intervalos[pos] = 1000000L / (vevals[pos] * 128L);
   }
   pos = 0;
   n = 0;
@@ -127,25 +132,16 @@ void Setup_potentiostatRamp_NonBlocking(void)
  * generating the desired ramp in order to test the 
  * potentiostat and behavior on the electrochemical cells  
  */
-void Potentiostat_Scan_NonBlocking(void)
+void Potentiostat_Scan_NonBlocking(void) 
 {
-  if(scanning)
+   if(scanning)
   {
     if(currentTime - lastADCReadTime >= DAC_INTERVAL)
     {
       lastADCReadTime = currentTime;
       dacWrite(DAC_PIN, val);
       c = analogRead(ADC_PIN);
-      Serial.print(val);
-      Serial.print(" ");
-      Serial.print(c);
-      Serial.print(" ");
-      Serial.print(n);
-      Serial.print(" ");
-      Serial.print(vevals[pos]);
-      Serial.print(" ");
-      Serial.println(DAC_INTERVAL);
-
+  
       /* Update DAC value */
       if(forward)
       {
@@ -252,7 +248,7 @@ void setup()
 /* App entry loop ******************************************/
 void loop() 
 {
-  /* Aactual execution time acquisition in order toperform non-blocking tasks */
+  /* Actual execution time acquisition in order toperform non-blocking tasks */
   currentTime = millis();
 
   /*************************** Potentiostat ADC reading according to set interval */
@@ -270,25 +266,23 @@ void loop()
       currentMinute = timeinfo.tm_min;
       currentSecond = timeinfo.tm_sec;
 
-      Serial.printf("Actual time: %02d:%02d:%02d\n", currentHour, currentMinute, currentSecond);
-
       /* === RGB LED Stripe control === */
       /* Turns on at 7am, and goes off at 8pm */
       if (currentHour >= 7 && currentHour < 20)
       {
         
         digitalWrite(RGB_STRIPE_PIN, ON); 
-        Serial.println("7am, lights on...");
+        
       }
       else
       {
         digitalWrite(RGB_STRIPE_PIN, OFF);
-        Serial.println("8pm, lights off...");
+       
       }
     }
     else
     {
-      Serial.println("Time sync failed...");
+      
     }
   }
 
@@ -305,8 +299,7 @@ void loop()
 
     /* DHT11 average temperature */
     tempAvg = (temp1 + temp2 + temp3 + temp4) / 4.0;
-    Serial.print("Average temperature: "); Serial.print(tempAvg); Serial.println(" °C");
-
+   
     /* Temperature control logic */
     if(tempAvg < 20.0)
     {
@@ -314,7 +307,7 @@ void loop()
       digitalWrite(PELTIER1_HOT_FANS_PIN, ON);
       digitalWrite(PELTIER2_HOT_PIN,      ON);
       digitalWrite(PELTIER2_HOT_FANS_PIN, ON);
-      Serial.println("Warming peltier cells ON...(FAN ON)");
+
     }
     else
     {
@@ -322,7 +315,7 @@ void loop()
       digitalWrite(PELTIER1_HOT_FANS_PIN, OFF);
       digitalWrite(PELTIER2_HOT_PIN,      OFF);
       digitalWrite(PELTIER2_HOT_FANS_PIN, OFF);
-      Serial.println("Warming peltier cells OFF....(FAN OFF)");
+
     }
   }
 
@@ -338,13 +331,9 @@ void loop()
     gndHum1_mapped = map(gndHum1, 0, 4095, 100, 0);
     gndHum2_mapped = map(gndHum2, 0, 4095, 100, 0);
 
-    Serial.print("Humidity sensor 1: ");
-    Serial.print(gndHum1_mapped); Serial.println("%");
-    Serial.print("Humidity sensor 2: ");
-    Serial.print(gndHum2_mapped); Serial.println("%");
 
     gndHumAvg = (gndHum1_mapped + gndHum2_mapped) / 2;
-    Serial.print("Average soil humidity: "); Serial.print(gndHumAvg); Serial.println("%");
+
     
     /* Irrigation control due to soil humidity */
     if(!irrigationIsActive && gndHumAvg < 30.0)
@@ -352,7 +341,7 @@ void loop()
       digitalWrite(WATER_PUMP_PIN, ON);
       irrigationStartTime = currentTime;
       irrigationIsActive = true;
-      Serial.println("Watering dry soil...(7s)");
+
     }
   }
   /* Irrigation ends past 7 seconds */
@@ -360,7 +349,48 @@ void loop()
   {
     digitalWrite(WATER_PUMP_PIN, OFF);
     irrigationIsActive = false;
-    Serial.println("Irrigation completed");
+    
   }
+
+  /************************************************************
+  ********* Custom Frame send via serial port (UART0) *********
+  *************************************************************/
+  if(currentTime - lastJSONSendTime >= JSON_SEND_INTERVAL)
+  {
+    lastJSONSendTime = currentTime;
+    sendJSONData();
+  }
+
+}
+
+/* To create frame and send it at non-blocking time intervals*/
+void sendJSONData()
+{
+  String json = "{";
+
+  json += "\"temp1\":" + String(isnan(temp1) ? NAN : temp1, 1) + ",";
+  json += "\"temp2\":" + String(isnan(temp2) ? NAN : temp2, 1) + ",";
+  json += "\"temp3\":" + String(isnan(temp3) ? NAN : temp3, 1) + ",";
+  json += "\"temp4\":" + String(isnan(temp4) ? NAN : temp4, 1) + ",";
+  json += "\"tempAvg\":" + String(tempAvg, 1) + ",";
+
+ 
+  json += "\"hum1\":" + String(gndHum1_mapped) + ",";
+  json += "\"hum2\":" + String(gndHum2_mapped) + ",";
+  json += "\"humAvg\":" + String(gndHumAvg) + ",";
+
+ 
+  json += "\"dacValue\":" + String(val) + ",";
+  json += "\"adcValue\":" + String(c, 1) + ",";
+  json += "\"scanInterval\":" + String(intervalos[pos]) + ",";
+
+  
+  json += "\"rgb\":" + String(digitalRead(RGB_STRIPE_PIN) == ON ? 1 : 0) + ",";
+  json += "\"pump\":" + String(digitalRead(WATER_PUMP_PIN) == ON ? 1 : 0) + ",";
+  json += "\"peltier1\":" + String(digitalRead(PELTIER1_HOT_PIN) == ON ? 1 : 0) + ",";
+  json += "\"peltier2\":" + String(digitalRead(PELTIER2_HOT_PIN) == ON ? 1 : 0);
+
+  json += "}";
+  Serial.println(json);
 }
 
